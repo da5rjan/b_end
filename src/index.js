@@ -19,7 +19,21 @@ app.get('/kategorije', async (req, res) => {
 
 app.post('/kategorije', async (req, res) => {
         let db = await connect() // pristup db objektu
-        let novi={"naziv": req.body.naziv, "opis": req.body.opis}
+        if ((!("naziv" in req.body)) ) {
+                return res.status(400).send({"message": "field naziv missing"})
+        }
+        let naziv = req.body.naziv
+         if   (naziv.length < 5) {
+                return res.status(400).send({"message": "field naziv too short"})
+        }
+        if(!("opis" in req.body)) 
+                {return res.status(400).send({"message": "field opis missing"})
+        }
+        let opis = req.body.opis
+        if (opis.length < 16){
+                return res.status(400).send({"message": "field opis too short"})
+        }
+         let novi={"naziv": req.body.naziv, "opis": req.body.opis}
         let kategorija = await db.collection("kategorije").insertOne(novi)
         res.json({"status": "ok"})
 });
@@ -28,26 +42,60 @@ app.get('/kategorije/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
         let id = req.params['id']
         console.log("pitam za kategoriju" + id)
-        let o_id = new ObjectId(id)
-        let kategorija = await db.collection("kategorije").findOne({'_id': o_id})
-        res.json(kategorija)
+        try {
+                let o_id = new ObjectId(id)
+                let kategorija = await db.collection("kategorije").findOne({'_id': o_id})
+                if (kategorija==null) {
+                        return res.status(400).send({"message": "kategorija nije nadjena"})
+                }
+                res.json(kategorija)
+        }
+        catch (exception) {
+                return res.status(400).send({"message": "kategorija nije nadjena"})
+        }
 });
 
 app.put('/kategorije/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
         let id = req.params['id']
-        let o_id = new ObjectId(id)
-        let update={"_id": o_id, "naziv": req.body.naziv, "opis": req.body.opis}
-        let kategorija = await db.collection("kategorije").replaceOne({'_id': o_id}, update)
-        res.json({"status": "ok"})
+        if (!("naziv" in req.body)){
+                return res.status(400).send({"message":"nema tog naziva "})
+        }
+        let naziv = req.body.naziv
+        if (naziv.length < 5 ) {
+                return res.status(400).send({"message":"naziv je prekratak"})
+        }
+        if (!("opis" in req.body) ) {
+                return res.status(400).send({"message":" nema opisa "})
+        }
+        let opis = req.body.opis
+        if(opis.length < 10){
+                return res.status(400).send({"message":"opis   je prekratak"})
+        }
+        try {
+                let o_id = new ObjectId(id)
+                let update={"naziv": naziv, "opis": opis}
+                let kategorija = await db.collection("kategorije").updateOne({'_id': o_id}, update)
+                res.json({"status": "ok"})
+        } catch (exception) {
+                return res.status(400).send({"message": "kategorija nije promijenjena"})
+        }
 });
 
 app.delete('/kategorije/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
-        let id = req.params['id']
+        try {  let id = req.params['id']
+
         let o_id = new ObjectId(id)
         let kategorija = await db.collection("kategorije").deleteOne({'_id': o_id})
-        res.json({"status": "ok"})
+        if (kategorija.deletedCount <1 ) {
+                return res.status(400).send({"message": "kategorija nije promijenjena"})
+        }
+                res.json({"status": "ok"})
+        }
+        catch(exception){
+                return res.status(400).send({"message": " kategorija nije obrisana"})
+        }
 });
 
 ////////////////////////////////////////////////////////////////////////////
@@ -55,25 +103,75 @@ app.delete('/kategorije/:id', async (req, res) => {
 app.get('/oglasi', async (req, res) => {
         // trebamo dodati da se ekspandiraju podaci iz korisnika
         //
+       try{
         let db = await connect() // pristup db objektu
         let cursor = await db.collection("oglasi").find()
         let results = await cursor.toArray()
         res.json(results)
+       }
+       catch(exception) {
+        return res.status(400).send({"message": " baza nije dostupna"})
+       }
+
 });
 app.get('/oglasi/:id', async (req, res) => {
-        let db = await connect() // pristup db objektu
+      try{  let db = await connect() // pristup db objektu
         let id = req.params['id']
         let o_id = new ObjectId(id)
         let oglas = await db.collection("oglasi").findOne({'_id': o_id})
+        if (oglas==null) {
+                return res.status(400).send({"message": " oglas ne valja"})
+        }
+        console.log(oglas)
         res.json(oglas)
+        }
+        catch(exception){
+                return res.status(400).send({"message": " oglas ne valja"})
+        }
+
 });
 
 app.post('/oglasi',async(req,res) => {let db = await connect() // pristup db objektu
-        let novi={
+        if(!("naslov" in req.body)){
+
+                return res.status(400).send({"message": "nema naslova"})
+        }
+        let naslov = req.body.naslov
+        if(naslov.length< 5 ) {
+                return res.status(400).send({"message":"naslov je prekartak"})
+        }
+       
+        if(!("text"in req.body))
+        {       
+                return res.status(400).send({"message": "  text nepostoji"})
+        }
+
+        let text = req.body.text
+        if(text.length< 10 ){
+                return res.status(400).send({"message":" text je prekratak"})
+        }
+        if (!("cijena" in req.body)){
+                return res.status(400).send({"message": " niste unijeli cijenu"})
+        }
+        let cijena = req.body.cijena 
+        if(!("korisnik" in req.body))
+        {
+                return res.status(400).send({"message":"korisnik ne postoji"})
+
+        }
+
+        if(!("kategorija" in req.body))
+        {
+                return res.status(400).send({"message":"kategorija  ne postoji"})
+        }
+
+        // TODO nastaviti s provjerom postoje li korisnik i kategorija u bazi
+        
+         let novi={
                 "naslov":req.body.naslov, 
                 "text": req.body.text, 
                 "cijena": {
-                        "$numberDecimal":req.body.kratki_cijena
+                        "$numberDecimal":req.body.cijena
                 },
                 "kategorija":req.body.kategorija, 
                 "korisnik":req.body.korisnik,
@@ -103,6 +201,13 @@ app.put('/oglasi/:id',async(req,res) => {
         res.json({"status": "ok"})
 });
 
+app.delete('/oglasi/:id', async (req, res) => {
+        let db = await connect() // pristup db objektu
+        let id = req.params['id']
+        let o_id = new ObjectId(id)
+        let oglas = await db.collection("oglasi").deleteOne({'_id': o_id})
+        res.json(oglas)
+});
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -134,8 +239,8 @@ app.post('/korisnici',async(req,res) => {let db = await connect() // pristup db 
                 "broj_mobitela":req.body.broj_mobitela,
                 "adresa":req.body.adresa, 
                 "grad":req.body.grad,
-                "e_mail":req.body.e_mail
-        };
+                "e_mail":req.body.e_mail,
+                "vrsta": req.body.vrsta   }; 
         let korisnik = await db.collection("korisnici").insertOne(novi)
         res.json({"status": "ok"})
 });
@@ -156,8 +261,8 @@ app.put('/korisnici/:id', async (req, res) => {
                 "broj_mobitela":req.body.broj_mobitela,
                 "adresa":req.body.adresa, 
                 "grad":req.body.grad,
-                "e_mail":req.body.e_mail
-        };
+                "e_mail":req.body.e_mail,
+                "vrsta":req.body.vrsta  }; 
         let updated = await db.collection("korisnici").replaceOne({'_id': o_id}, update)
         res.json({"status": "ok"})
 });
