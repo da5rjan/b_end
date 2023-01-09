@@ -84,14 +84,14 @@ app.put('/kategorije/:id', async (req, res) => {
 
 app.delete('/kategorije/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
-        try {  let id = req.params['id']
-
-        let o_id = new ObjectId(id)
-        let kategorija = await db.collection("kategorije").deleteOne({'_id': o_id})
-        if (kategorija.deletedCount <1 ) {
-                return res.status(400).send({"message": "kategorija nije promijenjena"})
-        }
-                res.json({"status": "ok"})
+        try {  
+                let id = req.params['id']
+                let o_id = new ObjectId(id)
+                let kategorija = await db.collection("kategorije").deleteOne({'_id': o_id})
+                if (kategorija.deletedCount <1 ) {
+                        return res.status(400).send({"message": "kategorija nije obrisana"})
+                }
+                        res.json({"status": "ok"})
         }
         catch(exception){
                 return res.status(400).send({"message": " kategorija nije obrisana"})
@@ -249,11 +249,20 @@ app.put('/oglasi/:id',async(req,res) => {
         
 
 app.delete('/oglasi/:id', async (req, res) => {
-        let db = await connect() // pristup db objektu
+       let db = await connect() // pristup db objektu
+       try{ 
         let id = req.params['id']
         let o_id = new ObjectId(id)
-        let oglas = await db.collection("oglasi").deleteOne({'_id': o_id})
-        res.json(oglas)
+        let oglas = await db.collection("oglasi").deleteOne({'_id': o_id}) 
+        if (oglas.deletedCount <1 ) {
+                return res.status(400).send({"message": "oglas 1 nije obrisan"})
+        }
+        res.json({"status": "ok"})
+        }
+        catch(exception){
+                console.log(exception)
+                return res.status(400).send({"message": " oglas 2 nije obrisan"})
+        }
 });
 
 
@@ -268,10 +277,17 @@ app.get('/korisnici', async (req, res) => {
 
 app.get('/korisnici/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
-        let id = req.params['id']
-        let o_id = new ObjectId(id)
-        let korisnik = await db.collection("korisnici").findOne({'_id': o_id})
-        res.json(korisnik)
+        try{  
+                let id = req.params['id']
+                let o_id = new ObjectId(id)
+                let korisnik = await db.collection("korisnici").findOne({'_id': o_id})
+                if (korisnik == null) {
+                        return res.status(400).send({"message": "korisnik ne postoji"})
+                }
+                res.json(korisnik)
+        } catch (exception) {
+                return res.status(400).send({"message": "neispravan upit"})
+        }
 });
 
 app.post('/korisnici',async(req,res) => {let db = await connect() // pristup db objektu
