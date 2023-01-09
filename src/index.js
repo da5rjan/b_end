@@ -164,27 +164,72 @@ app.post('/oglasi',async(req,res) => {let db = await connect() // pristup db obj
         {
                 return res.status(400).send({"message":"kategorija  ne postoji"})
         }
-
-        // TODO nastaviti s provjerom postoje li korisnik i kategorija u bazi
-        
-         let novi={
-                "naslov":req.body.naslov, 
-                "text": req.body.text, 
-                "cijena": {
-                        "$numberDecimal":req.body.cijena
-                },
-                "kategorija":req.body.kategorija, 
-                "korisnik":req.body.korisnik,
-                "ocijene":[]
+        try {   let kat_id = new ObjectId(req.body.kategorija)
+                let katObj = await db.collection("kategorije").findOne({'_id': kat_id})
+                if(katObj == null) {
+                        return res.status(400).send({"message":"kategorija ne postoji"})
+                }
+                let k_id = new ObjectId(req.body.korisnik)
+                let korisnikObject = await db.collection("korisnici").findOne({'_id': k_id})
+                if(korisnikObject == null) {
+                        return res.status(400).send({"message":"korisnik ne postoji"})
+                }
+         
+                let novi={
+                        "naslov":req.body.naslov, 
+                        "text": req.body.text, 
+                        "cijena": {
+                                "$numberDecimal":req.body.cijena
+                        },
+                        "kategorija":req.body.kategorija, 
+                        "korisnik":req.body.korisnik,
+                        "ocijene":[]
+                }
+                let oglas = await db.collection("oglasi").insertOne(novi)
+                res.json({"status": "ok"})
+        } catch(exception) {
+                console.log(exception)
+                return res.status(400).send({"message":"nepravilan upit"})
         }
-        let oglas = await db.collection("oglasi").insertOne(novi)
-        res.json({"status": "ok"})
 });
 
 app.put('/oglasi/:id',async(req,res) => {
         let db = await connect() // pristup db objektu
         let id = req.params['id']
+        if(!("kategorija" in req.body))
+        {
+                return res.status(400).send({"message":"kategorija  ne postoji"})
+        }
+        if(!("naslov" in req.body)){
+        return res.status(400).send({"message": " naslov ne postoji "})}
+        if(!("text"in req.body))
+        {       
+                return res.status(400).send({"message": "  text nepostoji"})
+        }
+
+        let text = req.body.text
+        if(text.length< 10 ){
+                return res.status(400).send({"message":" text je prekratak"})
+        }
+        if (!("cijena" in req.body)){
+                return res.status(400).send({"message": " niste unijeli cijenu"})
+        }
+        let cijena = req.body.cijena 
+        if(!("korisnik" in req.body))
+        {
+                return res.status(400).send({"message":"korisnik ne postoji"})
+
+        }
+        if(!("ocijene" in req.body))
+        {
+                return res.status(400).send({"message":"ocjena ne postoji"})
+        }
         let o_id = new ObjectId(id)
+        let naslov = req.body.naslov
+
+        if(naslov.length< 5 ) {
+                return res.status(400).send({"message":"naslov je prekartak"})
+        }                      
         let update={
                 "_id": o_id,
                 "naslov":req.body.naslov, 
@@ -200,6 +245,8 @@ app.put('/oglasi/:id',async(req,res) => {
         let kategorija = await db.collection("oglasi").replaceOne({'_id': o_id}, update)
         res.json({"status": "ok"})
 });
+
+        
 
 app.delete('/oglasi/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
@@ -234,7 +281,7 @@ app.post('/korisnici',async(req,res) => {let db = await connect() // pristup db 
                 "ime": req.body.ime, 
                 "prezime": req.body.prezime, 
                 "kratki_opis":req.body.kratki_opis,
-                "OIB":req.body.OIB, 
+                "OIB":req.body.OIB,
                 "user_name":req.body.user_name,
                 "broj_mobitela":req.body.broj_mobitela,
                 "adresa":req.body.adresa, 
@@ -262,7 +309,7 @@ app.put('/korisnici/:id', async (req, res) => {
                 "adresa":req.body.adresa, 
                 "grad":req.body.grad,
                 "e_mail":req.body.e_mail,
-                "vrsta":req.body.vrsta  }; 
+                "vrsta":req.body.vrsta  };
         let updated = await db.collection("korisnici").replaceOne({'_id': o_id}, update)
         res.json({"status": "ok"})
 });
@@ -274,6 +321,6 @@ app.delete('/korisnici/:id', async (req, res) => {
         res.json(korisnik)
 });
 
-
+      
 
 app.listen(port, () => console.log(`Slušam na portu ${port}!`))
