@@ -8,6 +8,15 @@ const port = 3000 // port na kojem će web server slušati
 
 app.use(express.json())
 
+// json parser error catcher
+app.use((err, req, res, next) => {
+  if (err) {
+    res.status(400).send('Oglasnik invalid data sent')
+  } else {
+    next()
+  }
+})
+
 /////////////////////////////////////////////////////////////////////////////////////////
 //      kategorije
 app.get('/kategorije', async (req, res) => {
@@ -293,7 +302,45 @@ app.get('/korisnici/:id', async (req, res) => {
 app.post('/korisnici',async(req,res) => {let db = await connect() // pristup db objektu
         // treba provjeriti sve podatke iz req.body (req.body.ime, ..) da li postoje i 
         // imaju li odgovarajuce vrijednosti
-        let novi={
+        if(!("ime" in req.body)){
+                return  res.status(400).send({"message": " nepostoji to ime "})
+
+        }
+        if(!("prezime" in req.body)){
+                return res.status(400).send({"message": "nema prezime"  })
+
+     
+
+        }
+        if(!("kratki_opis"  in req.body)){
+                return  res.status(400).send({"message": " nema opissa  "})
+
+               
+        }
+        if(!("OIB"  in req.body)){
+                return  res.status(400).send({"message": " nema OIB  "})
+        }
+        if(!("user_name"  in req.body)){
+                return  res.status(400).send({"message": " nema user_name  "})
+        }
+        if(!("broj_mobitela" in req.body)){
+                return  res.status(400).send({"message": " nema broja  "})
+               
+
+        } 
+        if(!("grad"in req.body)){
+                return res.status(400).send( {"message": "nema grada"})
+        }      
+        if(!("adresa" in req.body)){
+                return  res.status(400).send({"message": " nema adrese   "})
+        }
+        if(!("e_mail"in req.body)){
+                return  res.status(400).send({"message": " nema mail adrese    "})
+        }
+        if(!("vrsta" in req.body)) {
+                return  res.status(400).send({"message": " nema vrste    "})
+        }
+   let novi= {
                 "ime": req.body.ime, 
                 "prezime": req.body.prezime, 
                 "kratki_opis":req.body.kratki_opis,
@@ -304,17 +351,77 @@ app.post('/korisnici',async(req,res) => {let db = await connect() // pristup db 
                 "grad":req.body.grad,
                 "e_mail":req.body.e_mail,
                 "vrsta": req.body.vrsta   }; 
-        let korisnik = await db.collection("korisnici").insertOne(novi)
+
+
+        try    { 
+                let korisnik = await db.collection("korisnici").insertOne(novi)
+                if(korisnik == null){
+                        return res.status(400).send({"message": "korisnik nije dobar"})
+                }
+        }
+        catch(exception)
+                {
+               return res.status(400).send({"message": "korisnik ne postoji"})
+                }
+           
         res.json({"status": "ok"})
+
+
 });
 
 app.put('/korisnici/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
         let id = req.params['id']
-        let o_id = new ObjectId(id)
-        // provjeriti sva req.body polja koja koristimo,
-        // vrattiti gresku ako ne valjaju
-        let update = {
+        let o_id
+        try {
+                 
+                o_id = new ObjectId(id)}
+        catch (exception) {
+                console.log(exception)
+                 return res.status(400).send({"message": "neispravan id korisnika"})
+        }
+     
+
+        if(!("ime" in req.body)){
+                return  res.status(400).send({"message": " nepostoji to ime "})
+
+        }
+        if(!("prezime" in req.body)){
+                return res.status(400).send({"message": "nema prezime"  })
+
+     
+
+        }
+        if(!("kratki_opis"  in req.body)){
+                return  res.status(400).send({"message": " nema opissa  "})
+
+               
+        } 
+        if(!("user_name"  in req.body)){
+                return  res.status(400).send({"message": " nema user_name  "})
+        }
+        if(!("broj_mobitela" in req.body)){
+                return  res.status(400).send({"message": " nema broja  "})
+               
+
+        } 
+        if(!("grad"in req.body)){
+                return res.status(400).send( {"message": "nema grada"})
+        }      
+        if(!("adresa" in req.body)){
+                return  res.status(400).send({"message": " nema adrese   "})
+        }
+        if(!("e_mail"in req.body)){
+                return  res.status(400).send({"message": " nema mail adrese    "})
+        }
+        if(!("vrsta" in req.body)) {
+                return  res.status(400).send({"message": " nema vrste    "})
+        }
+         
+       
+
+     try{
+      let update = {
                 "_id": o_id,
                 "ime": req.body.ime, 
                 "prezime": req.body.prezime, 
@@ -328,13 +435,40 @@ app.put('/korisnici/:id', async (req, res) => {
                 "vrsta":req.body.vrsta  };
         let updated = await db.collection("korisnici").replaceOne({'_id': o_id}, update)
         res.json({"status": "ok"})
+     }
+        catch (exception) {
+                return res.status(400).send({"message": "korisnik  nije promijenjen"})}
 });
+
+
 app.delete('/korisnici/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
+     try{ 
+
         let id = req.params['id']
         let o_id = new ObjectId(id)
+        let oglas = await db.collection("oglasi").findOne({'korisnik': o_id})
+         if(oglas != null ){
+                        return res.status(400).send({"message":"korisnik nije obrisan jer ima oglas "})
+         }
+          
         let korisnik = await db.collection("korisnici").deleteOne({'_id': o_id})
-        res.json(korisnik)
+     
+       if (korisnik.deletedCount <1 ) {
+               return res.status(400).send({"message": "oglas 1 nije obrisan"})}
+      res.json(korisnik)
+        
+       }
+
+        catch(exception){
+                console.log(exception)
+                return res.status(400).send({"message": " korisnik    nije obrisan"})
+        }
+        
+
+
+
+
 });
 
       
