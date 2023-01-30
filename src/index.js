@@ -1,5 +1,5 @@
 import express from 'express';
-//import cors from 'cors'
+import cors from 'cors'
 import connect from "./db.js"
 import { ObjectId } from 'mongodb'
 
@@ -7,6 +7,7 @@ const app = express() // instanciranje aplikacije
 const port = 3000 // port na kojem će web server slušati
 
 app.use(express.json())
+app.use(cors())
 
 // json parser error catcher
 app.use((err, req, res, next) => {
