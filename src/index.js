@@ -22,7 +22,7 @@ app.use((err, req, res, next) => {
 //      kategorije
 app.get('/kategorije', async (req, res) => {
         let db = await connect() // pristup db objektu
-        let cursor = await db.collection("kategorije").find()
+        let cursor = await db.collection("kategorije").find().sort({"redoslijed":1})
         let results = await cursor.toArray()
         res.json(results)
 });
@@ -36,6 +36,11 @@ app.post('/kategorije', async (req, res) => {
          if   (naziv.length < 5) {
                 return res.status(400).send({"message": "field naziv too short"})
         }
+        if (!("redoslijed" in  req.body ))
+                {
+                        return res.status(400).send({"message ":" nema redoslijeda " })
+                }
+
         if(!("opis" in req.body)) 
                 {return res.status(400).send({"message": "field opis missing"})
         }
@@ -43,7 +48,8 @@ app.post('/kategorije', async (req, res) => {
         if (opis.length < 16){
                 return res.status(400).send({"message": "field opis too short"})
         }
-         let novi={"naziv": req.body.naziv, "opis": req.body.opis}
+         let novi={"naziv": req.body.naziv, "opis": req.body.opis, "redoslijed": req.body.redoslijed}
+
         let kategorija = await db.collection("kategorije").insertOne(novi)
         res.json({"status": "ok"})
 });
@@ -75,16 +81,21 @@ app.put('/kategorije/:id', async (req, res) => {
         if (naziv.length < 5 ) {
                 return res.status(400).send({"message":"naziv je prekratak"})
         }
+        if (!("redoslijed" in  req.body ))
+                {
+                        return res.status(400).send({"message ":" nema redoslijeda " })
+                }
         if (!("opis" in req.body) ) {
                 return res.status(400).send({"message":" nema opisa "})
         }
+        
         let opis = req.body.opis
         if(opis.length < 10){
                 return res.status(400).send({"message":"opis   je prekratak"})
         }
         try {
                 let o_id = new ObjectId(id)
-                let update={"naziv": naziv, "opis": opis}
+                let update={"naziv": naziv, "opis": opis, "redoslijed": redoslijed}
                 let kategorija = await db.collection("kategorije").updateOne({'_id': o_id}, update)
                 res.json({"status": "ok"})
         } catch (exception) {
