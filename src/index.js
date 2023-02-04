@@ -135,6 +135,24 @@ app.get('/oglasi', async (req, res) => {
        }
 
 });
+
+app.get('/oglasi/kategorija/:kategorijaId', async (req, res) => {
+        // trebamo dodati da se ekspandiraju podaci iz korisnika
+        //
+       try{
+        let kategorijaId = req.params['kategorijaId']
+        let o_id = new ObjectId(kategorijaId)        
+        let db = await connect() // pristup db objektu
+        let cursor = await db.collection("oglasi").find({"kategorija": kategorijaId})
+        let results = await cursor.toArray()
+        res.json(results)
+       }
+       catch(exception) {
+        return res.status(400).send({"message": " baza nije dostupna"})
+       }
+
+});
+
 app.get('/oglasi/:id', async (req, res) => {
       try{  let db = await connect() // pristup db objektu
         let id = req.params['id']
