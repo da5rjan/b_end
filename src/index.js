@@ -157,14 +157,35 @@ app.get('/oglasi/:id', async (req, res) => {
       try{  let db = await connect() // pristup db objektu
         let id = req.params['id']
         let o_id = new ObjectId(id)
-        let oglas = await db.collection("oglasi").findOne({'_id': o_id})
+        let oglasi = await db.collection("oglasi").aggregate(
+                [
+                        { 
+                                $match : {  '_id': o_id } 
+                        },
+                        {
+                                $lookup: {
+                                        from: 'korisnici',
+                                        localField: 'korisnik',
+                                        foreignField: '_id',
+                                        as: 'korisnikDetalji'
+                                }
+                        }
+                ]
+        )
+        
+        oglasi = await oglasi.toArray()
+        const oglas = oglasi[0]
         if (oglas==null) {
+                console.log("oglass je null")
                 return res.status(400).send({"message": " oglas ne valja"})
         }
-        console.log(oglas)
-        res.json(oglas)
+                //console.log(oglas)
+                res.json(oglas)
         }
         catch(exception){
+                console.log("oglas exception")
+                console.log(exception)
+
                 return res.status(400).send({"message": " oglas ne valja"})
         }
 
@@ -203,7 +224,8 @@ app.post('/oglasi',async(req,res) => {let db = await connect() // pristup db obj
         {
                 return res.status(400).send({"message":"kategorija  ne postoji"})
         }
-        try {   let kat_id = new ObjectId(req.body.kategorija)
+        try {   
+                let kat_id = new ObjectId(req.body.kategorija)
                 let katObj = await db.collection("kategorije").findOne({'_id': kat_id})
                 if(katObj == null) {
                         return res.status(400).send({"message":"kategorija ne postoji"})
@@ -220,8 +242,8 @@ app.post('/oglasi',async(req,res) => {let db = await connect() // pristup db obj
                         "cijena": {
                                 "$numberDecimal":req.body.cijena
                         },
-                        "kategorija":req.body.kategorija, 
-                        "korisnik":req.body.korisnik,
+                        "kategorija":kat_id, 
+                        "korisnik":k_id,
                         "ocijene":[]
                 }
                 let oglas = await db.collection("oglasi").insertOne(novi)
@@ -269,20 +291,38 @@ app.put('/oglasi/:id',async(req,res) => {
         if(naslov.length< 5 ) {
                 return res.status(400).send({"message":"naslov je prekartak"})
         }                      
-        let update={
-                "_id": o_id,
-                "naslov":req.body.naslov, 
-                "text": req.body.text, 
-    
-                "cijena": {
-                        "$numberDecimal":req.body.cijena
-                },
-                "kategorija":req.body.kategorija, 
-                "korisnik":req.body.korisnik,
-                "ocijene": req.body.ocijene
+        try {
+                let kat_id = new ObjectId(req.body.kategorija)
+                let katObj = await db.collection("kategorije").findOne({'_id': kat_id})
+                if(katObj == null) {
+                        return res.status(400).send({"message":"kategorija ne postoji"})
+                }
+                let k_id = new ObjectId(req.body.korisnik)
+                let korisnikObject = await db.collection("korisnici").findOne({'_id': k_id})
+                if(korisnikObject == null) {
+                        return res.status(400).send({"message":"korisnik ne postoji"})
+                }
+        
+                let update={
+                        "_id": o_id,
+                        "naslov":req.body.naslov, 
+                        "text": req.body.text, 
+            
+                        "cijena": {
+                                "$numberDecimal":req.body.cijena
+                        },
+                        "kategorija":kat_id, 
+                        "korisnik":k_id,
+                        "ocijene": req.body.ocijene
+                }
+                let oglasi = await db.collection("oglasi").replaceOne({'_id': o_id}, update)
+                res.json({"status": "ok"})
+        
+        } catch(exception) {
+                console.log(exception)
+                return res.status(400).send({"message":"nepravilan upit"})
         }
-        let kategorija = await db.collection("oglasi").replaceOne({'_id': o_id}, update)
-        res.json({"status": "ok"})
+
 });
 
         
