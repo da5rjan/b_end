@@ -169,12 +169,22 @@ app.get('/oglasi/:id', async (req, res) => {
                                         foreignField: '_id',
                                         as: 'korisnikDetalji'
                                 }
-                        }
+                        }, 
+                        {
+                                $lookup: {
+                                        from: 'kategorije',
+                                        localField: 'kategorija',
+                                        foreignField: '_id',
+                                        as: 'kategorijaDetalji'
+                                }
+                        } 
                 ]
         )
         
         oglasi = await oglasi.toArray()
         const oglas = oglasi[0]
+        console.log(oglas)
+
         if (oglas==null) {
                 console.log("oglass je null")
                 return res.status(400).send({"message": " oglas ne valja"})
