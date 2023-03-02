@@ -143,7 +143,22 @@ app.get('/oglasi/kategorija/:kategorijaId', async (req, res) => {
         let kategorijaId = req.params['kategorijaId']
         let o_id = new ObjectId(kategorijaId)        
         let db = await connect() // pristup db objektu
-        let cursor = await db.collection("oglasi").find({"kategorija": kategorijaId})
+        let cursor = await db.collection("oglasi").find({"kategorija": o_id})
+        let results = await cursor.toArray()
+        res.json(results)
+       }
+       catch(exception) {
+        return res.status(400).send({"message": " baza nije dostupna"})
+       }
+
+});
+
+app.get('/oglasi/korisnik/:korisnikId', async (req, res) => {
+       try{
+        let korisnikId = req.params['korisnikId']
+        let o_id = new ObjectId(korisnikId)        
+        let db = await connect() // pristup db objektu
+        let cursor = await db.collection("oglasi").find({"korisnik": o_id})
         let results = await cursor.toArray()
         res.json(results)
        }
