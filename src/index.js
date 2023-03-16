@@ -155,12 +155,16 @@ app.get('/oglasi/kategorija/:kategorijaId', async (req, res) => {
 
 app.get('/oglasi/korisnik/:korisnikId', async (req, res) => {
        try{
+        console.log("Svi oglasi korisnika")
+        console.log("-----------------------------------------------------------------")
         let korisnikId = req.params['korisnikId']
         let o_id = new ObjectId(korisnikId)        
         let db = await connect() // pristup db objektu
         let cursor = await db.collection("oglasi").find({"korisnik": o_id})
         let results = await cursor.toArray()
         res.json(results)
+        console.log(results)
+        console.log("-----------------------------------------------------------------")
        }
        catch(exception) {
         return res.status(400).send({"message": " baza nije dostupna"})
