@@ -57,7 +57,6 @@ app.post('/kategorije', async (req, res) => {
 app.get('/kategorije/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
         let id = req.params['id']
-        console.log("pitam za kategoriju" + id)
         try {
                 let o_id = new ObjectId(id)
                 let kategorija = await db.collection("kategorije").findOne({'_id': o_id})
@@ -155,16 +154,14 @@ app.get('/oglasi/kategorija/:kategorijaId', async (req, res) => {
 
 app.get('/oglasi/korisnik/:korisnikId', async (req, res) => {
        try{
-        console.log("Svi oglasi korisnika")
-        console.log("-----------------------------------------------------------------")
         let korisnikId = req.params['korisnikId']
         let o_id = new ObjectId(korisnikId)        
         let db = await connect() // pristup db objektu
         let cursor = await db.collection("oglasi").find({"korisnik": o_id})
         let results = await cursor.toArray()
         res.json(results)
-        console.log(results)
-        console.log("-----------------------------------------------------------------")
+     
+
        }
        catch(exception) {
         return res.status(400).send({"message": " baza nije dostupna"})
@@ -202,17 +199,15 @@ app.get('/oglasi/:id', async (req, res) => {
         
         oglasi = await oglasi.toArray()
         const oglas = oglasi[0]
-        console.log(oglas)
+        
 
         if (oglas==null) {
-                console.log("oglass je null")
                 return res.status(400).send({"message": " oglas ne valja"})
         }
                 //console.log(oglas)
                 res.json(oglas)
         }
         catch(exception){
-                console.log("oglas exception")
                 console.log(exception)
 
                 return res.status(400).send({"message": " oglas ne valja"})
