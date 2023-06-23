@@ -467,6 +467,9 @@ app.put('/korisnici/:id', async (req, res) => {
         let db = await connect() // pristup db objektu
         let id = req.params['id']
         let o_id
+        console.log("korisnik:put")
+        console.log(id)
+        console.log(req.body)
         try {
                  
                 o_id = new ObjectId(id)}
