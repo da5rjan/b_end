@@ -71,6 +71,7 @@ app.get('/kategorije/:id', async (req, res) => {
 });
 
 app.put('/kategorije/:id', async (req, res) => {
+        console.log("put kategorija")
         let db = await connect() // pristup db objektu
         let id = req.params['id']
         if (!("naziv" in req.body)){
@@ -89,15 +90,21 @@ app.put('/kategorije/:id', async (req, res) => {
         }
         
         let opis = req.body.opis
+        let redoslijed = req.body.redoslijed
         if(opis.length < 10){
                 return res.status(400).send({"message":"opis   je prekratak"})
         }
         try {
                 let o_id = new ObjectId(id)
-                let update={"naziv": naziv, "opis": opis, "redoslijed": redoslijed}
+                console.log(o_id)
+                let update={$set:{"naziv": naziv, "opis": opis, "redoslijed": redoslijed}}
+                console.log(update)
                 let kategorija = await db.collection("kategorije").updateOne({'_id': o_id}, update)
+                console.log("kategorija promijenjena")
                 res.json({"status": "ok"})
         } catch (exception) {
+                console.log("greska pri promjeni kategorije")
+                console.log(exception)
                 return res.status(400).send({"message": "kategorija nije promijenjena"})
         }
 });
