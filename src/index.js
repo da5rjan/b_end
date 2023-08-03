@@ -290,7 +290,7 @@ app.put('/oglasi/:id',async(req,res) => {
         let id = req.params['id']
         if(!("kategorija" in req.body))
         {
-                return res.status(400).send({"message":"kategorija  ne postoji"})
+                return res.status(400).send({"message":"nema kategorije u zahtjevu"})
         }
         if(!("naslov" in req.body)){
         return res.status(400).send({"message": " naslov ne postoji "})}
@@ -309,7 +309,7 @@ app.put('/oglasi/:id',async(req,res) => {
         let cijena = req.body.cijena 
         if(!("korisnik" in req.body))
         {
-                return res.status(400).send({"message":"korisnik ne postoji"})
+                return res.status(400).send({"message":"korisnik ninje u zahtijevu"})
 
         }
         if(!("ocijene" in req.body))
@@ -329,6 +329,7 @@ app.put('/oglasi/:id',async(req,res) => {
                         return res.status(400).send({"message":"kategorija ne postoji"})
                 }
                 let k_id = new ObjectId(req.body.korisnik)
+                console.log(req.body.korisnik)
                 let korisnikObject = await db.collection("korisnici").findOne({'_id': k_id})
                 if(korisnikObject == null) {
                         return res.status(400).send({"message":"korisnik ne postoji"})
