@@ -1,8 +1,13 @@
-import express from 'express';
+import express from 'express'
 import cors from 'cors'
+import mongoose from 'mongoose'
+import jwt from "jsonwebtoken"
 import connect from "./db.js"
 import { ObjectId } from 'mongodb'
-
+import bodyParser from 'body-parser'
+import {UserModel, CategoryModel, AdModel} from './model'
+import bcrypt from 'bcrypt'
+import { normalizeStyle } from 'vue'
 const app = express() // instanciranje aplikacije
 const port = 3000 // port na kojem će web server slušati
 
@@ -18,564 +23,295 @@ app.use((err, req, res, next) => {
   }
 })
 
-/////////////////////////////////////////////////////////////////////////////////////////
-//      kategorije
-app.get('/kategorije', async (req, res) => {
-        let db = await connect() // pristup db objektu
-        let cursor = await db.collection("kategorije").find().sort({"redoslijed":1})
-        let results = await cursor.toArray()
-        res.json(results)
-});
+const mongoString = "mongodb+srv://dadmin:00HC15uu@cluster0.xzs5xto.mongodb.net/oglasnik2?retryWrites=true&w=majority";
+const accessTokenSecret = "runtime-core.esm-bundler.js:40 [Vue warn]: Avoid app logic that relies on enumerating keys on a component instance. The keys will be empty in production mode to avoid performance overhead."
+mongoose.connect(mongoString)
+const database = mongoose.connection
 
-app.post('/kategorije', async (req, res) => {
-        let db = await connect() // pristup db objektu
-        if ((!("naziv" in req.body)) ) {
-                return res.status(400).send({"message": "field naziv missing"})
-        }
-        let naziv = req.body.naziv
-         if   (naziv.length < 5) {
-                return res.status(400).send({"message": "field naziv too short"})
-        }
-        if (!("redoslijed" in  req.body ))
-                {
-                        return res.status(400).send({"message ":" nema redoslijeda " })
+database.on('error', (error) => {
+  console.log(error)
+})
+
+database.once('connected', () => {
+  console.log('Database Connected');
+})
+
+function checkToken(req, res, next) {
+        const authHeader = req.headers.authorization;
+        console.log("checkToken", authHeader)
+        if (authHeader) {
+            const token = authHeader.split(' ')[1];
+      
+            jwt.verify(token, accessTokenSecret, (err, user) => {
+                if (err) {
+                    return res.sendStatus(403).json({error: 'Unauthorized'});
                 }
+                req._authentificated_user = user;
+                return next();
+            });
+        } else {
+            return res.sendStatus(401).json({error: 'Unauthorized'});
+}}
+      
 
-        if(!("opis" in req.body)) 
-                {return res.status(400).send({"message": "field opis missing"})
-        }
-        let opis = req.body.opis
-        if (opis.length < 16){
-                return res.status(400).send({"message": "field opis too short"})
-        }
-         let novi={"naziv": req.body.naziv, "opis": req.body.opis, "redoslijed": req.body.redoslijed}
+async function hashPassword(plaintextPassword) {
+        const hash = await bcrypt.hash(plaintextPassword, 10);
+        return hash
+}
 
-        let kategorija = await db.collection("kategorije").insertOne(novi)
-        res.json({"status": "ok"})
-});
-
-app.get('/kategorije/:id', async (req, res) => {
-        let db = await connect() // pristup db objektu
-        let id = req.params['id']
-        try {
-                let o_id = new ObjectId(id)
-                let kategorija = await db.collection("kategorije").findOne({'_id': o_id})
-                if (kategorija==null) {
-                        return res.status(400).send({"message": "kategorija nije nadjena"})
-                }
-                res.json(kategorija)
-        }
-        catch (exception) {
-                return res.status(400).send({"message": "kategorija nije nadjena"})
-        }
-});
-
-app.put('/kategorije/:id', async (req, res) => {
-        console.log("put kategorija")
-        let db = await connect() // pristup db objektu
-        let id = req.params['id']
-        if (!("naziv" in req.body)){
-                return res.status(400).send({"message":"nema tog naziva "})
-        }
-        let naziv = req.body.naziv
-        if (naziv.length < 5 ) {
-                return res.status(400).send({"message":"naziv je prekratak"})
-        }
-        if (!("redoslijed" in  req.body ))
-                {
-                        return res.status(400).send({"message ":" nema redoslijeda " })
-                }
-        if (!("opis" in req.body) ) {
-                return res.status(400).send({"message":" nema opisa "})
-        }
-        
-        let opis = req.body.opis
-        let redoslijed = req.body.redoslijed
-        if(opis.length < 10){
-                return res.status(400).send({"message":"opis   je prekratak"})
-        }
-        try {
-                let o_id = new ObjectId(id)
-                console.log(o_id)
-                let update={$set:{"naziv": naziv, "opis": opis, "redoslijed": redoslijed}}
-                console.log(update)
-                let kategorija = await db.collection("kategorije").updateOne({'_id': o_id}, update)
-                console.log("kategorija promijenjena")
-                res.json({"status": "ok"})
-        } catch (exception) {
-                console.log("greska pri promjeni kategorije")
-                console.log(exception)
-                return res.status(400).send({"message": "kategorija nije promijenjena"})
-        }
-});
-
-app.delete('/kategorije/:id', async (req, res) => {
-        let db = await connect() // pristup db objektu
-        try {  
-                let id = req.params['id']
-                let o_id = new ObjectId(id)
-                let kategorija = await db.collection("kategorije").deleteOne({'_id': o_id})
-                if (kategorija.deletedCount <1 ) {
-                        return res.status(400).send({"message": "kategorija nije obrisana"})
-                }
-                        res.json({"status": "ok"})
-        }
-        catch(exception){
-                return res.status(400).send({"message": " kategorija nije obrisana"})
-        }
-});
-
-////////////////////////////////////////////////////////////////////////////
-//      Oglasi
-app.get('/oglasi', async (req, res) => {
-        // trebamo dodati da se ekspandiraju podaci iz korisnika
-        //
-       try{
-        let db = await connect() // pristup db objektu
-        let cursor = await db.collection("oglasi").find()
-        let results = await cursor.toArray()
-        res.json(results)
-       }
-       catch(exception) {
-        return res.status(400).send({"message": " baza nije dostupna"})
-       }
-
-});
-
-app.get('/oglasi/kategorija/:kategorijaId', async (req, res) => {
-        // trebamo dodati da se ekspandiraju podaci iz korisnika
-        //
-       try{
-        let kategorijaId = req.params['kategorijaId']
-        let o_id = new ObjectId(kategorijaId)        
-        let db = await connect() // pristup db objektu
-        let cursor = await db.collection("oglasi").find({"kategorija": o_id})
-        let results = await cursor.toArray()
-        res.json(results)
-       }
-       catch(exception) {
-        return res.status(400).send({"message": " baza nije dostupna"})
-       }
-
-});
-
-app.get('/oglasi/korisnik/:korisnikId', async (req, res) => {
-       try{
-        let korisnikId = req.params['korisnikId']
-        let o_id = new ObjectId(korisnikId)        
-        let db = await connect() // pristup db objektu
-        let cursor = await db.collection("oglasi").find({"korisnik": o_id})
-        let results = await cursor.toArray()
-        res.json(results)
-     
-
-       }
-       catch(exception) {
-        return res.status(400).send({"message": " baza nije dostupna"})
-       }
-
-});
-
-app.get('/oglasi/:id', async (req, res) => {
-      try{  let db = await connect() // pristup db objektu
-        let id = req.params['id']
-        let o_id = new ObjectId(id)
-        let oglasi = await db.collection("oglasi").aggregate(
-                [
-                        { 
-                                $match : {  '_id': o_id } 
-                        },
-                        {
-                                $lookup: {
-                                        from: 'korisnici',
-                                        localField: 'korisnik',
-                                        foreignField: '_id',
-                                        as: 'korisnikDetalji'
-                                }
-                        }, 
-                        {
-                                $lookup: {
-                                        from: 'kategorije',
-                                        localField: 'kategorija',
-                                        foreignField: '_id',
-                                        as: 'kategorijaDetalji'
-                                }
-                        } 
-                ]
-        )
-        
-        oglasi = await oglasi.toArray()
-        const oglas = oglasi[0]
-        
-
-        if (oglas==null) {
-                return res.status(400).send({"message": " oglas ne valja"})
-        }
-                //console.log(oglas)
-                res.json(oglas)
-        }
-        catch(exception){
-                console.log(exception)
-
-                return res.status(400).send({"message": " oglas ne valja"})
-        }
-
-});
-
-app.post('/oglasi',async(req,res) => {let db = await connect() // pristup db objektu
-        if(!("naslov" in req.body)){
-
-                return res.status(400).send({"message": "nema naslova"})
-        }
-        let naslov = req.body.naslov
-        if(naslov.length< 5 ) {
-                return res.status(400).send({"message":"naslov je prekartak"})
-        }
-       
-        if(!("text"in req.body))
-        {       
-                return res.status(400).send({"message": "  text nepostoji"})
-        }
-
-        let text = req.body.text
-        if(text.length< 10 ){
-                return res.status(400).send({"message":" text je prekratak"})
-        }
-        if (!("cijena" in req.body)){
-                return res.status(400).send({"message": " niste unijeli cijenu"})
-        }
-        let cijena = req.body.cijena 
-        if(!("korisnik" in req.body))
-        {
-                return res.status(400).send({"message":"korisnik ne postoji"})
-
-        }
-
-        if(!("kategorija" in req.body))
-        {
-                return res.status(400).send({"message":"kategorija  ne postoji"})
-        }
-        try {   
-                let kat_id = new ObjectId(req.body.kategorija)
-                let katObj = await db.collection("kategorije").findOne({'_id': kat_id})
-                if(katObj == null) {
-                        return res.status(400).send({"message":"kategorija ne postoji"})
-                }
-                let k_id = new ObjectId(req.body.korisnik)
-                let korisnikObject = await db.collection("korisnici").findOne({'_id': k_id})
-                if(korisnikObject == null) {
-                        return res.status(400).send({"message":"korisnik ne postoji"})
-                }
-         
-                let novi={
-                        "naslov":req.body.naslov, 
-                        "text": req.body.text, 
-                        "cijena": {
-                                "$numberDecimal":req.body.cijena
-                        },
-                        "kategorija":kat_id, 
-                        "korisnik":k_id,
-                        "ocijene":[]
-                }
-                let oglas = await db.collection("oglasi").insertOne(novi)
-                res.json({"status": "ok"})
-        } catch(exception) {
-                console.log(exception)
-                return res.status(400).send({"message":"nepravilan upit"})
-        }
-});
-
-app.put('/oglasi/:id',async(req,res) => {
-        let db = await connect() // pristup db objektu
-        let id = req.params['id']
-        if(!("kategorija" in req.body))
-        {
-                return res.status(400).send({"message":"nema kategorije u zahtjevu"})
-        }
-        if(!("naslov" in req.body)){
-        return res.status(400).send({"message": " naslov ne postoji "})}
-        if(!("text"in req.body))
-        {       
-                return res.status(400).send({"message": "  text nepostoji"})
-        }
-
-        let text = req.body.text
-        if(text.length< 10 ){
-                return res.status(400).send({"message":" text je prekratak"})
-        }
-        if (!("cijena" in req.body)){
-                return res.status(400).send({"message": " niste unijeli cijenu"})
-        }
-        let cijena = req.body.cijena 
-        if(!("korisnik" in req.body))
-        {
-                return res.status(400).send({"message":"korisnik ninje u zahtijevu"})
-
-        }
-        if(!("ocijene" in req.body))
-        {
-                return res.status(400).send({"message":"ocjena ne postoji"})
-        }
-        let o_id = new ObjectId(id)
-        let naslov = req.body.naslov
-
-        if(naslov.length< 5 ) {
-                return res.status(400).send({"message":"naslov je prekartak"})
-        }                      
-        try {
-                let kat_id = new ObjectId(req.body.kategorija)
-                let katObj = await db.collection("kategorije").findOne({'_id': kat_id})
-                if(katObj == null) {
-                        return res.status(400).send({"message":"kategorija ne postoji"})
-                }
-                let k_id = new ObjectId(req.body.korisnik)
-                console.log(req.body.korisnik)
-                let korisnikObject = await db.collection("korisnici").findOne({'_id': k_id})
-                if(korisnikObject == null) {
-                        return res.status(400).send({"message":"korisnik ne postoji"})
-                }
-        
-                let update={
-                        "_id": o_id,
-                        "naslov":req.body.naslov, 
-                        "text": req.body.text, 
+async function comparePassword(plaintextPassword, hash) {
+        const result = await bcrypt.compare(plaintextPassword, hash);
+        return result;
+}
             
-                        "cijena": {
-                                "$numberDecimal":req.body.cijena
-                        },
-                        "kategorija":kat_id, 
-                        "korisnik":k_id,
-                        "ocijene": req.body.ocijene
-                }
-                let oglasi = await db.collection("oglasi").replaceOne({'_id': o_id}, update)
-                res.json({"status": "ok"})
-        
-        } catch(exception) {
-                console.log(exception)
-                return res.status(400).send({"message":"nepravilan upit"})
+//////////////////////////////////////////
+app.post('/category', checkToken, async (req, res) => {
+        console.log("category", req._authenticated_user)
+        if (req._authentificated_user.role !== "admin") {
+                return res.status(401).json({message: "Admin is required"})
         }
-
-});
-
-        
-
-app.delete('/oglasi/:id', async (req, res) => {
-       let db = await connect() // pristup db objektu
-       try{ 
-        let id = req.params['id']
-        let o_id = new ObjectId(id)
-        let oglas = await db.collection("oglasi").deleteOne({'_id': o_id}) 
-        if (oglas.deletedCount <1 ) {
-                return res.status(400).send({"message": "oglas 1 nije obrisan"})
+        try{
+                const category = new CategoryModel(
+                        req.body
+                );
+                await category.save();
+                res.status(201).json(category)
         }
-        res.json({"status": "ok"})
+        catch(error){
+                console.log("new category error)")
+                console.log(req)
+                res.status(500).json({message: error.message, body: req.body})
         }
-        catch(exception){
-                console.log(exception)
-                return res.status(400).send({"message": " oglas 2 nije obrisan"})
+})
+
+app.put('/category/:id', checkToken, async (req, res) => {
+        if (req._authentificated_user.role !== "admin") {
+                return res.status(401).json({message: "Admin is required"})
         }
-});
-
-
-////////////////////////////////////////////////////////////////////////////////////////
-//      Korisnici
-app.get('/korisnici', async (req, res) => {
-        let db = await connect() // pristup db objektu
-        let cursor = await db.collection("korisnici").find()
-        let results = await cursor.toArray()
-        res.json(results)
-});
-
-app.get('/korisnici/:id', async (req, res) => {
-        let db = await connect() // pristup db objektu
-        try{  
+        try{
                 let id = req.params['id']
-                let o_id = new ObjectId(id)
-                let korisnik = await db.collection("korisnici").findOne({'_id': o_id})
-                if (korisnik == null) {
-                        return res.status(400).send({"message": "korisnik ne postoji"})
-                }
-                res.json(korisnik)
-        } catch (exception) {
-                return res.status(400).send({"message": "neispravan upit"})
+                const objectId = new mongoose.Types.ObjectId(id) 
+                let query = {"_id": objectId}
+                const data = await CategoryModel.findOneAndUpdate(
+                        query, 
+                        req.body, 
+                        { returnOriginal: false}
+                      )
+                      if (data) {
+                        return res.json(data)  
+                      }  
+                      return res.status(404).json({message: "no such category"})
         }
-});
-
-app.post('/korisnici',async(req,res) => {let db = await connect() // pristup db objektu
-        // treba provjeriti sve podatke iz req.body (req.body.ime, ..) da li postoje i 
-        // imaju li odgovarajuce vrijednosti
-        if(!("ime" in req.body)){
-                return  res.status(400).send({"message": " nepostoji to ime "})
-
-        }
-        if(!("prezime" in req.body)){
-                return res.status(400).send({"message": "nema prezime"  })
-
-     
-
-        }
-        if(!("kratki_opis"  in req.body)){
-                return  res.status(400).send({"message": " nema opissa  "})
-
-               
-        }
-        if(!("OIB"  in req.body)){
-                return  res.status(400).send({"message": " nema OIB  "})
-        }
-        if(!("user_name"  in req.body)){
-                return  res.status(400).send({"message": " nema user_name  "})
-        }
-        if(!("broj_mobitela" in req.body)){
-                return  res.status(400).send({"message": " nema broja  "})
-               
-
-        } 
-        if(!("grad"in req.body)){
-                return res.status(400).send( {"message": "nema grada"})
-        }      
-        if(!("adresa" in req.body)){
-                return  res.status(400).send({"message": " nema adrese   "})
-        }
-        if(!("e_mail"in req.body)){
-                return  res.status(400).send({"message": " nema mail adrese    "})
-        }
-        if(!("vrsta" in req.body)) {
-                return  res.status(400).send({"message": " nema vrste    "})
-        }
-   let novi= {
-                "ime": req.body.ime, 
-                "prezime": req.body.prezime, 
-                "kratki_opis":req.body.kratki_opis,
-                "OIB":req.body.OIB,
-                "user_name":req.body.user_name,
-                "broj_mobitela":req.body.broj_mobitela,
-                "adresa":req.body.adresa, 
-                "grad":req.body.grad,
-                "e_mail":req.body.e_mail,
-                "vrsta": req.body.vrsta   }; 
-
-
-        try    { 
-                let korisnik = await db.collection("korisnici").insertOne(novi)
-                if(korisnik == null){
-                        return res.status(400).send({"message": "korisnik nije dobar"})
-                }
-        }
-        catch(exception)
-                {
-               return res.status(400).send({"message": "korisnik ne postoji"})
-                }
-           
-        res.json({"status": "ok"})
-
-
-});
-
-app.put('/korisnici/:id', async (req, res) => {
-        let db = await connect() // pristup db objektu
-        let id = req.params['id']
-        let o_id
-        console.log("korisnik:put")
-        console.log(id)
-        console.log(req.body)
-        try {
-                 
-                o_id = new ObjectId(id)}
-        catch (exception) {
+        catch(exception) {
                 console.log(exception)
-                 return res.status(400).send({"message": "neispravan id korisnika"})
+         return res.status(400).send({"message": " baza nije dostupna"})
         }
-     
-
-        if(!("ime" in req.body)){
-                return  res.status(400).send({"message": " nepostoji to ime "})
-
-        }
-        if(!("prezime" in req.body)){
-                return res.status(400).send({"message": "nema prezime"  })
-
-     
-
-        }
-        if(!("kratki_opis"  in req.body)){
-                return  res.status(400).send({"message": " nema opissa  "})
-
-               
-        } 
-        if(!("user_name"  in req.body)){
-                return  res.status(400).send({"message": " nema user_name  "})
-        }
-        if(!("broj_mobitela" in req.body)){
-                return  res.status(400).send({"message": " nema broja  "})
-               
-
-        } 
-        if(!("grad"in req.body)){
-                return res.status(400).send( {"message": "nema grada"})
-        }      
-        if(!("adresa" in req.body)){
-                return  res.status(400).send({"message": " nema adrese   "})
-        }
-        if(!("e_mail"in req.body)){
-                return  res.status(400).send({"message": " nema mail adrese    "})
-        }
-        if(!("vrsta" in req.body)) {
-                return  res.status(400).send({"message": " nema vrste    "})
-        }
-         
-       
-
-     try{
-      let update = {
-                "_id": o_id,
-                "ime": req.body.ime, 
-                "prezime": req.body.prezime, 
-                "kratki_opis":req.body.kratki_opis,
-                "OIB":req.body.OIB, 
-                "user_name":req.body.user_name,
-                "broj_mobitela":req.body.broj_mobitela,
-                "adresa":req.body.adresa, 
-                "grad":req.body.grad,
-                "e_mail":req.body.e_mail,
-                "vrsta":req.body.vrsta  };
-        let updated = await db.collection("korisnici").replaceOne({'_id': o_id}, update)
-        res.json({"status": "ok"})
-     }
-        catch (exception) {
-                return res.status(400).send({"message": "korisnik  nije promijenjen"})}
 });
 
 
-app.delete('/korisnici/:id', async (req, res) => {
-        let db = await connect() // pristup db objektu
-     try{ 
+app.get('/category', async (req, res) => {
+        try{
+                //await sleep(5000)
+                const data = await CategoryModel.find()
+                  .sort([['order', -1]])
+                ;
+                res.json(data)
+        }
+        catch(error){
+                console.log("get all categories error)")
+                console.log(error)
+                res.status(500).json({message: error.message})
+        }
+});
 
+app.get('/category/:id', async (req, res) => {
         let id = req.params['id']
-        let o_id = new ObjectId(id)
-        let oglas = await db.collection("oglasi").findOne({'korisnik': o_id})
-         if(oglas != null ){
-                        return res.status(400).send({"message":"korisnik nije obrisan jer ima oglas "})
-         }
-          
-        let korisnik = await db.collection("korisnici").deleteOne({'_id': o_id})
-     
-       if (korisnik.deletedCount <1 ) {
-               return res.status(400).send({"message": "oglas 1 nije obrisan"})}
-      res.json(korisnik)
-        
+        try{
+                const objectId = new mongoose.Types.ObjectId(id)     
+                const data = await CategoryModel.findOne({_id: objectId})
+                res.json(data)
+        }
+        catch(error){
+                console.log("get all categories error)")
+                console.log(error)
+                res.status(500).json({message: error.message})
+        }
+});
+
+//////////////////////////////////////////
+app.post('/user', async (req, res) => {
+        try{
+        const user = new UserModel(
+                req.body
+        );
+        console.log(user)
+        console.log(req.body)
+        user.password = await hashPassword(user.password);
+        user.role = "user";
+        await user.save();
+                res.status(201).json(user)
+        }
+        catch(error){
+                console.log("new user error)", error.message)
+                //console.log(req)
+                res.status(500).json({message: error.message, body: req.body})
+        }
+})
+
+app.put('/user/:id', async (req, res) => {
+        try{
+                let id = req.params['id']
+                const objectId = new mongoose.Types.ObjectId(id) 
+                let query = {_id: objectId}
+                if (req._authentificated_user.role !== "admin") {
+                        const creatorId = new mongoose.Types.ObjectId(req._authentificated_user.userId)
+                        query = {_id: objectId, _id: creatorId}
+                }
+                const data = await UserModel.findOneAndUpdate(
+                        query, 
+                        req.body, 
+                        { returnOriginal: false}
+                      )
+                if (data) {
+                        return res.json(data)  
+                }  
+                return res.status(404).json({message: "no such user"})
+        }
+        catch(exception) {
+                console.log(exception)
+         return res.status(400).send({"message": " baza nije dostupna"})
+        }
+})
+
+app.post('/user/login', async (req, res) => {
+        try{
+          const data = await UserModel.findOne({userName: req.body.userName});
+          console.log("login attempt")
+          //await sleep(5000)
+          console.log(req.body)
+          console.log(data)
+          if (data === null) {
+            return res.status(401).json({message: "1 invalid username/password", body: req.body})
+          } 
+          const authentificated = await comparePassword(req.body.password, data.password)
+          if ( !authentificated) {
+            return res.status(401).json({message: "2 invalid username/password", body: req.body})
+          }
+            const rawToken = {
+              "userId": (data._id).toString(), 
+              "userName": req.body.userName,
+              "role": data.role
+            }
+            console.log("raw token")
+            console.log(rawToken)
+            const token = jwt.sign(rawToken , accessTokenSecret)
+            const returnUser = {
+              "token": token, 
+              "userName" : data.userName, 
+              "userId": (data._id).toString(),
+              "role": data.role
+            }
+            return res.status(200).json(returnUser)
+        }
+        catch(error){
+            console.log("new user error)")
+            console.log(error)
+            res.status(500).json({action: "new user", message: error.message, body: req.body})
+        }
+      })
+
+//////////////////////////////////////////
+
+app.get('/ad/category/:kategorijaId', async (req, res) => {
+       try{
+                let kategorijaId = req.params['kategorijaId']
+                const objectId = new mongoose.Types.ObjectId(kategorijaId)     
+                const data = await AdModel.find({category: objectId})
+                res.json(data)
+       }
+       catch(exception) {
+        return res.status(400).json({"message": exception})
        }
 
-        catch(exception){
-                console.log(exception)
-                return res.status(400).send({"message": " korisnik    nije obrisan"})
-        }
-        
-
-
-
-
 });
 
+app.get('/ad/:id', async (req, res) => {
+        try{
+                 let id = req.params['id']
+                 const objectId = new mongoose.Types.ObjectId(id)     
+                 const data = await AdModel.findOne({_id: objectId})
+                        .populate('creator')
+                 res.json(data)
+        }
+        catch(exception) {
+         return res.status(400).json({"message": exception})
+        }
+ 
+ });
+ 
+app.post('/ad', checkToken, async (req, res) => {
+        try{
+                req.body.creator = new mongoose.Types.ObjectId(req._authentificated_user.userId)
+                req.body.category = new mongoose.Types.ObjectId(req.body.kategorijaId)
+                const ad = new AdModel(
+                  req.body
+                );
+                console.log(ad)
+                await ad.save();
+                res.status(201).json(ad)
+                    }
+        catch(exception) {
+                console.log(exception)
+         return res.status(400).send({"message": " baza nije dostupna"})
+        }
+ 
+ });
+
+ app.put('/ad/:id', checkToken, async (req, res) => {
+        try{
+                let id = req.params['id']
+                const objectId = new mongoose.Types.ObjectId(id) 
+                let query = {"_id": objectId}
+                if (req._authentificated_user.role !== "admin") {
+                        const creatorId = new mongoose.Types.ObjectId(req._authentificated_user.userId)
+                        query = {_id: objectId, creator: creatorId}
+                }
+                const data = await AdModel.findOneAndUpdate(
+                        query, 
+                        req.body, 
+                        { returnOriginal: false}
+                )
+                if (data) {
+                        return res.json(data)  
+                }  
+                return res.status(404).json({message: "no such ad"})
+        }
+        catch(exception) {
+                console.log(exception)
+         return res.status(400).send({"message": " baza nije dostupna"})
+        }
+ });
+ 
+ app.delete('/ad/:id', checkToken, async (req, res) => {
+        try{
+                let id = req.params['id']
+                const objectId = new mongoose.Types.ObjectId(id) 
+                let query = {_id: objectId}    
+                if (req._authentificated_user.role !== "admin") {
+                        const creatorId = new mongoose.Types.ObjectId(req._authentificated_user.userId)
+                        query = {_id: objectId, creator: creatorId}
+                }
+                const data = await AdModel.deleteOne(query);
+                if (data.deletedCount !== 1) {
+                  return res.status(404).json({message: "no such ad"})
+                }
+                res.json(data)
+                                }
+        catch(exception) {
+                console.log(exception)
+         return res.status(400).send({"message": " delete ad error"})
+        }
+ });
       
 
 app.listen(port, () => console.log(`Slušam na portu ${port}!`))
